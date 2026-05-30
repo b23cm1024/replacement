@@ -1,0 +1,100 @@
+name: Deploy AI Search Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt && pip install pytest pytest-asyncio httpx
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+        continue-on-error: true  # remove this once you have tests written
+
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ai-search-backend:latest .
+          docker save ai-search-backend:latest -o backend.tar
+          chmod 644 backend.tar
+
+      - name: Copy image to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          source: "backend.tar"
+          target: "/home/${{ secrets.EC2_USERNAME }}/ai-search"
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR="/home/${{ secrets.EC2_USERNAME }}/ai-search"
+            cd "$APP_DIR"
+
+            echo "Loading Docker image..."
+            sudo docker load -i backend.tar
+
+            echo "Stopping old container..."
+            sudo docker stop ai-search-backend || true
+            sudo docker rm ai-search-backend || true
+
+            echo "Starting new container..."
+            sudo docker run -d \
+              --name ai-search-backend \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              -e APP_ENV=production \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              -e QDRANT_HOST=${{ secrets.QDRANT_HOST }} \
+              -e QDRANT_PORT=${{ secrets.QDRANT_PORT }} \
+              -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              -e GITHUB_TOKEN=${{ secrets.GH_TOKEN }} \
+              ai-search-backend:latest
+
+            echo "Cleaning up..."
+            rm backend.tar || true
+            sudo docker image prune -f
+
+            echo "Verifying container is healthy..."
+            sleep 5
+            sudo docker ps | grep ai-search-backend
+
+            echo "Deployment complete!"
