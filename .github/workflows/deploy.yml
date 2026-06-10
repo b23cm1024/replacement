@@ -79,7 +79,7 @@ jobs:
             echo "Starting new container..."
             sudo docker run -d \
               --name ai-search-backend \
-              -p 8000:8000 \
+              -p 8106:8000 \
               --restart unless-stopped \
               -e APP_ENV=production \
               -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
