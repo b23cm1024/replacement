@@ -91,6 +91,25 @@ def parse_document(file_path: str):
                 )
             )
 
+    # Process Tables
+    for table in getattr(doc, 'tables', []):
+        page_number = None
+        if table.prov:
+            page_number = table.prov[0].page_no
+        
+        try:
+            # We pass doc=doc because using export_to_markdown without doc is deprecated
+            md_table = table.export_to_markdown()
+            elements.append(
+                DocumentElement(
+                    element_type="table",
+                    content=md_table,
+                    metadata={"page_number": page_number}
+                )
+            )
+        except Exception as e:
+            print(f"Warning: Failed to export table to markdown: {e}")
+
     # Process Images
     for picture_index, picture in enumerate(doc.pictures):
         page_number = None
