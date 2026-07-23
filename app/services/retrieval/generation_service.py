@@ -20,13 +20,16 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
     # Compile the context from the chunks
     context = ""
     for idx, chunk in enumerate(retrieved_chunks):
-        context += f"\n--- Source: {chunk.get('source_name', 'Unknown')} ---\n"
+        source_name = chunk.get('source_name', 'Unknown')
+        source_type = chunk.get('source_type', 'Unknown')
+        context += f"\n--- Source: {source_name} (Doc Type: {source_type}) ---\n"
         context += f"{chunk.get('chunk_text', '')}\n"
 
     system_prompt = (
         "You are an intelligent enterprise search assistant (WorkIQ). "
         "Use the provided document excerpts below to answer the user's question. "
         "Synthesize the information provided to give a comprehensive answer. "
+        "IMPORTANT: At the end of your answer, you MUST append a 'Sources:' section listing the exact document name and document type (e.g., pdf, excel, github repo) that your answer was derived from.\n"
         "If the excerpts are completely unrelated and do not contain enough information to form an answer, say 'I cannot answer this based on the retrieved documents.'\n\n"
         f"CONTEXT:\n{context}"
     )
