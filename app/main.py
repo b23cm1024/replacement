@@ -38,7 +38,7 @@ from app.models.schemas import (
 )
 
 # ── Services ─────────────────────────────────────────────────────────────────────
-from app.services.ingestion.pdf_ingestor import ingest_pdf
+from app.services.ingestion.document_ingestor import ingest_document
 from app.services.ingestion.github_ingestor import ingest_github_repo
 from app.services.retrieval.retrieval_service import search_documents
 from app.services.retrieval.generation_service import generate_answer
@@ -108,33 +108,34 @@ def health():
 
 
 @app.post("/upload", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...)):
     """
-    Upload a PDF file. The server will:
+    Upload a document (PDF, Word, Excel, PPT). The server will:
       1. Save it permanently to storage/uploads/
       2. Extract text and images (saved to storage/images/<doc_name>/)
-      3. Run LLM-based semantic chunking
-      4. Generate embeddings for each chunk
-      5. Store everything in PostgreSQL (pgvector)
-
-    After upload completes, the document is immediately searchable via /search.
+      3. Use Vision AI to describe images
+      4. Run LLM-based semantic chunking
+      5. Generate embeddings for each chunk
+      6. Store everything in PostgreSQL (pgvector)
     """
-    # Validate file type
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    ext = file.filename.split('.')[-1].lower()
+    allowed_exts = {"pdf", "docx", "pptx", "xlsx", "md"}
+    
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"Only {', '.join(allowed_exts)} files are supported.")
 
-    pdf_save_path = os.path.join(UPLOAD_DIR, file.filename)
+    file_save_path = os.path.join(UPLOAD_DIR, file.filename)
     doc_name = os.path.splitext(file.filename)[0]
     image_save_dir = os.path.join(IMAGES_DIR, doc_name)
 
     try:
         # Save uploaded file to server permanently
-        with open(pdf_save_path, "wb") as buffer:
+        with open(file_save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        print(f"[Upload] Saved '{file.filename}' to {pdf_save_path}")
+        print(f"[Upload] Saved '{file.filename}' to {file_save_path}")
 
-        # Run full ingestion pipeline
-        result = ingest_pdf(pdf_save_path, image_save_dir)
+        # Run full universal ingestion pipeline
+        result = ingest_document(file_save_path, image_save_dir)
 
         return UploadResponse(
             status="success",
