@@ -25,9 +25,9 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
 
     system_prompt = (
         "You are an intelligent enterprise search assistant (WorkIQ). "
-        "Your task is to answer the user's question based strictly on the provided document excerpts below.\n"
-        "If the answer is not contained in the provided context, say 'I cannot answer this based on the retrieved documents.' "
-        "Do not invent or hallucinate information.\n\n"
+        "Use the provided document excerpts below to answer the user's question. "
+        "Synthesize the information provided to give a comprehensive answer. "
+        "If the excerpts are completely unrelated and do not contain enough information to form an answer, say 'I cannot answer this based on the retrieved documents.'\n\n"
         f"CONTEXT:\n{context}"
     )
 
