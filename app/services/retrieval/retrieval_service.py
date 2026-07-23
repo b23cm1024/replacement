@@ -26,6 +26,7 @@ def search_documents(query: str, db: Session, top_k: int = 5):
             'chunk_text': chunk.chunk_text,
             'source_name': source.source_name,
             'source_type': source.source_type,
+            'metadata': chunk.chunk_metadata,
             'score': 0.0 # Will be overwritten by reranker
         }
         
@@ -45,6 +46,7 @@ def search_documents(query: str, db: Session, top_k: int = 5):
                 'chunk_text': chunk.chunk_text,
                 'source_name': source.source_name,
                 'source_type': source.source_type,
+                'metadata': chunk.chunk_metadata,
                 'score': 0.0
             }
             
@@ -63,6 +65,7 @@ def search_documents(query: str, db: Session, top_k: int = 5):
             "chunk_text": res["chunk_text"],
             "source_name": res["source_name"],
             "source_type": res["source_type"],
+            "metadata": res.get("metadata", {}),
             "score": res.get("rerank_score", 0.0)
         }
         for res in final_results

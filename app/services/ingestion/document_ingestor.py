@@ -50,10 +50,18 @@ def ingest_document(file_path: str, image_output_dir: str) -> dict:
                 placeholder = f"[IMAGE_FOUND_PAGE_{page_num}_{img_id}]"
                 image_descriptions[placeholder] = f"\n\n[Embedded Image: {description}]\n\n"
 
-        # 3. Compile full text, injecting image descriptions
+        # 3. Compile full text, injecting image descriptions and page markers
         print("[Ingestor] Step 3/5 - Compiling text with embedded visual context...")
         full_text_lines = []
+        last_page = None
+        
         for el in elements:
+            # Inject a page marker if the page changes
+            current_page = el.metadata.get("page_number") if el.metadata else None
+            if current_page and current_page != last_page:
+                full_text_lines.append(f"\n[--- Page {current_page} ---]\n")
+                last_page = current_page
+                
             if el.element_type == "image":
                 # Replace the placeholder with the AI generated description
                 desc = image_descriptions.get(el.content, "\n\n[Image without description]\n\n")
