@@ -1,0 +1,31 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+python-multipart
+
+# Database
+sqlalchemy
+psycopg2-binary
+pgvector
+
+# Vector DB client (optional)
+qdrant-client
+
+# LLM & Embeddings
+openai
+tiktoken
+sentence-transformers
+
+# PDF Parsing
+docling
+PyMuPDF
+
+# API Models
+pydantic
+pydantic-settings
+
+# Auth (kept for future use)
+python-jose[cryptography]
+passlib[bcrypt]
+alembic
