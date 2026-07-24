@@ -28,11 +28,18 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
         file_name = metadata.get('file_name')
         
         if file_name:
-            context += f"\n--- Source: {source_name} | File: {file_name} (Doc Type: {source_type}) ---\n"
+            chunk_text = f"\n--- Source: {source_name} | File: {file_name} (Doc Type: {source_type}) ---\n"
         else:
-            context += f"\n--- Source: {source_name} (Doc Type: {source_type}) ---\n"
+            chunk_text = f"\n--- Source: {source_name} (Doc Type: {source_type}) ---\n"
             
-        context += f"{chunk.get('chunk_text', '')}\n"
+        chunk_text += f"{chunk.get('chunk_text', '')}\n"
+        
+        # Prevent prompt from exceeding Groq free tier limits (6000 TPM limit)
+        # 12000 chars is roughly 3000 tokens.
+        if len(context) + len(chunk_text) > 12000:
+            break
+            
+        context += chunk_text
 
     system_prompt = (
         "You are an intelligent enterprise search assistant (WorkIQ). "
