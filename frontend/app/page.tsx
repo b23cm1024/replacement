@@ -51,7 +51,7 @@ export default function HomePage() {
       </h1>
 
       <p className="hero-desc animate-in animate-delay-2">
-        WorkIQ searches across PDFs, Word documents, PowerPoints, Excel sheets,
+        Zephyr searches across PDFs, Word documents, PowerPoints, Excel sheets,
         and GitHub repositories using semantic AI retrieval.
       </p>
 
