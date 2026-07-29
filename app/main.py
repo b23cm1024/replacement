@@ -1,11 +1,12 @@
 """
-WorkIQ AI Search Backend — FastAPI Application
+Zephyr AI Search Backend — FastAPI Application
 ================================================
 Endpoints:
   GET    /               Health check
   GET    /health         Detailed health check
   POST   /upload         Upload a document (PDF, DOCX, PPTX, XLSX)
   POST   /ingest/github  Ingest a GitHub repository
+  POST   /ingest/s3      Ingest all documents from an S3 bucket prefix
   POST   /search         Query the ingested documents using RAG
   GET    /sources        List all ingested sources
   DELETE /sources/{id}   Delete a source and all its chunks
@@ -35,6 +36,9 @@ from app.models.schemas import (
     UploadResponse,
     GithubIngestRequest,
     GithubIngestResponse,
+    S3IngestRequest,
+    S3IngestResponse,
+    S3FileResult,
     SourceSchema,
     SourcesListResponse,
     DeleteResponse,
@@ -43,13 +47,14 @@ from app.models.schemas import (
 # ── Services ─────────────────────────────────────────────────────────────────────
 from app.services.ingestion.document_ingestor import ingest_document
 from app.services.ingestion.github_ingestor import ingest_github_repo
+from app.services.ingestion.s3_ingestor import ingest_from_s3
 from app.services.retrieval.retrieval_service import search_documents
 from app.services.retrieval.generation_service import generate_answer
 
 
 # ── App Setup ──────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="WorkIQ AI Search Backend",
+    title="Zephyr AI Search Backend",
     description="Upload documents and GitHub repos, then search them using RAG (semantic chunking + vector search + LLM).",
     version="2.0.0",
 )
@@ -98,7 +103,7 @@ def get_db():
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "WorkIQ AI Search Backend is running"}
+    return {"status": "ok", "message": "Zephyr AI Search Backend is running"}
 
 
 @app.get("/health")
@@ -184,6 +189,61 @@ async def ingest_github(request: GithubIngestRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"GitHub ingestion failed: {str(e)}")
+
+
+@app.post("/ingest/s3", response_model=S3IngestResponse)
+async def ingest_s3(request: S3IngestRequest):
+    """
+    Ingest all supported documents from an S3 bucket prefix.
+
+    The server will:
+      1. List all PDF, DOCX, PPTX, XLSX, MD files under the given prefix
+      2. Download each file to a temporary directory
+      3. Run through the full ingestion pipeline:
+         - Parse text + images (Docling)
+         - Vision AI image descriptions (OpenAI)
+         - LLM semantic chunking
+         - Generate vector embeddings
+         - Store in PostgreSQL (pgvector)
+      4. Clean up temp files
+
+    Defaults to bucket='zephyr-wings' and prefix='raw_data/' if not specified.
+    """
+    try:
+        result = ingest_from_s3(request.bucket, request.prefix)
+
+        status = "success" if result["files_skipped"] == 0 else "partial"
+        message = (
+            f"Scanned s3://{request.bucket}/{request.prefix} — "
+            f"{result['files_found']} file(s) found, "
+            f"{result['files_ingested']} ingested, "
+            f"{result['files_skipped']} skipped, "
+            f"{result['total_chunks']} total chunks stored."
+        )
+
+        return S3IngestResponse(
+            status=status,
+            bucket=request.bucket,
+            prefix=request.prefix,
+            files_found=result["files_found"],
+            files_ingested=result["files_ingested"],
+            files_skipped=result["files_skipped"],
+            total_chunks=result["total_chunks"],
+            message=message,
+            results=[
+                S3FileResult(
+                    s3_key=r["s3_key"],
+                    filename=r["filename"],
+                    status=r["status"],
+                    source_id=r.get("source_id"),
+                    chunks_stored=r.get("chunks_stored"),
+                    error=r.get("error"),
+                )
+                for r in result["results"]
+            ],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"S3 ingestion failed: {str(e)}")
 
 
 @app.post("/search", response_model=SearchResponse)

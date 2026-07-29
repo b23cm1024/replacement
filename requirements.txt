@@ -29,3 +29,6 @@ pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]
 alembic
+
+# AWS S3 integration
+boto3
