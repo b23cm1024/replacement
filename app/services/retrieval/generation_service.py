@@ -42,7 +42,7 @@ def generate_answer(query: str, retrieved_chunks: list) -> str:
         context += chunk_text
 
     system_prompt = (
-        "You are an intelligent enterprise search assistant (WorkIQ). "
+        "You are an intelligent enterprise search assistant (Zephyr). "
         "Use the provided document excerpts below to answer the user's question. "
         "Synthesize the information provided to give a comprehensive answer. "
         "IMPORTANT: At the end of your answer, you MUST append a 'Sources:' section listing the exact document name, document type (e.g., pdf, excel, github repo), and the specific page number(s) or file names that your answer was derived from. Page numbers are embedded in the text like [--- Page X ---].\n"
