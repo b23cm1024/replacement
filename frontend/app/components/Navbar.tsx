@@ -54,8 +54,8 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <Link href="/" className="navbar-logo">
-        <div className="logo-mark">W</div>
-        <span className="logo-text">Work<span>IQ</span></span>
+        <div className="logo-mark">Z</div>
+        <span className="logo-text">Zeph<span>yr</span></span>
       </Link>
 
       <div className="navbar-links">

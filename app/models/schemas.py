@@ -51,6 +51,34 @@ class GithubIngestResponse(BaseModel):
     message: str
 
 
+# ── S3 Ingestion ───────────────────────────────────────────────────────────────
+
+class S3IngestRequest(BaseModel):
+    bucket: str = "zephyr-wings"   # S3 bucket name
+    prefix: str = "raw_data/"       # Key prefix to scan (folder path)
+
+
+class S3FileResult(BaseModel):
+    s3_key: str
+    filename: str
+    status: str                      # "success" or "error"
+    source_id: Optional[int] = None
+    chunks_stored: Optional[int] = None
+    error: Optional[str] = None
+
+
+class S3IngestResponse(BaseModel):
+    status: str
+    bucket: str
+    prefix: str
+    files_found: int
+    files_ingested: int
+    files_skipped: int
+    total_chunks: int
+    message: str
+    results: List[S3FileResult]
+
+
 # ── Sources ────────────────────────────────────────────────────────────────────
 
 class SourceSchema(BaseModel):
