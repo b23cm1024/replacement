@@ -62,7 +62,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # Must be False when allow_origins=["*"] to satisfy browser CORS spec
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -126,7 +126,12 @@ async def upload_document(file: UploadFile = File(...)):
       5. Generate embeddings for each chunk
       6. Store everything in PostgreSQL (pgvector)
     """
-    ext = file.filename.split('.')[-1].lower()
+    # Sanitize filename to prevent directory traversal attacks (e.g. "../../etc/passwd")
+    safe_filename = os.path.basename(file.filename or "").strip()
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    ext = safe_filename.split('.')[-1].lower()
     allowed_exts = {"pdf", "docx", "pptx", "xlsx", "md"}
 
     if ext not in allowed_exts:
@@ -135,24 +140,24 @@ async def upload_document(file: UploadFile = File(...)):
             detail=f"Unsupported file type '.{ext}'. Allowed: {', '.join(sorted(allowed_exts))}"
         )
 
-    file_save_path = os.path.join(UPLOAD_DIR, file.filename)
-    doc_name = os.path.splitext(file.filename)[0]
+    file_save_path = os.path.join(UPLOAD_DIR, safe_filename)
+    doc_name = os.path.splitext(safe_filename)[0]
     image_save_dir = os.path.join(IMAGES_DIR, doc_name)
 
     try:
         with open(file_save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        print(f"[Upload] Saved '{file.filename}' to {file_save_path}")
+        print(f"[Upload] Saved '{safe_filename}' to {file_save_path}")
 
         result = ingest_document(file_save_path, image_save_dir)
 
         return UploadResponse(
             status="success",
-            filename=file.filename,
+            filename=safe_filename,
             source_id=result["source_id"],
             chunks_stored=result["chunks_stored"],
             message=(
-                f"Successfully ingested '{file.filename}'. "
+                f"Successfully ingested '{safe_filename}'. "
                 f"{result['chunks_stored']} semantic chunks are now searchable."
             ),
         )
@@ -174,7 +179,8 @@ async def ingest_github(request: GithubIngestRequest):
     """
     repo_full = f"{request.owner}/{request.repo}"
     try:
-        result = ingest_github_repo(request.owner, request.repo)
+        # Pass optional per-request token; falls back to GITHUB_TOKEN env var inside the client
+        result = ingest_github_repo(request.owner, request.repo, token=request.token)
         return GithubIngestResponse(
             status="success",
             repo=repo_full,
@@ -253,7 +259,12 @@ def search(request: SearchRequest, db: Session = Depends(get_db)):
     cross-encoder reranking, followed by LLM answer generation.
     Searches across ALL source types in one unified index.
     """
-    raw_results = search_documents(request.query, db, top_k=request.top_k)
+    raw_results = search_documents(
+        request.query,
+        db,
+        top_k=request.top_k,
+        source_type=request.source_type,  # Honour optional source filter from UI
+    )
 
     answer = generate_answer(request.query, raw_results)
 

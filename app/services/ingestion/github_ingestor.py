@@ -24,7 +24,7 @@ from app.services.chunkers.code_chunker import chunk_code_file
 from app.services.embeddings.embedding_services import generate_embedding
 
 
-def ingest_github_repo(owner: str, repo: str) -> dict:
+def ingest_github_repo(owner: str, repo: str, token: str = None) -> dict:
     """
     End-to-end GitHub repository ingestion pipeline.
 
@@ -54,7 +54,7 @@ def ingest_github_repo(owner: str, repo: str) -> dict:
 
         # ── Step 1: Fetch all code files from GitHub ──────────────────────────
         print("[GitHub Ingestor] Step 1/4 — Fetching files from GitHub API...")
-        files = get_all_repo_files(owner, repo)
+        files = get_all_repo_files(owner, repo, token=token)
         print(f"[GitHub Ingestor]   -> {len(files)} files fetched.")
 
         if not files:

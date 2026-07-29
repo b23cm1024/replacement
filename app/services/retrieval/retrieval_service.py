@@ -4,20 +4,25 @@ from app.models.db_models import DocumentChunk, Source
 from app.services.embeddings.embedding_services import generate_embedding
 from app.services.retrieval.reranker import rerank_chunks
 
-def search_documents(query: str, db: Session, top_k: int = 5):
+def search_documents(query: str, db: Session, top_k: int = 5, source_type: str = None):
     """
     Performs a hybrid search (Dense Vector + Exact Match Fallback) 
     and re-ranks the top candidates using a Cross-Encoder.
+    Optionally filters by source_type (e.g. "pdf", "github", "docx").
     """
     # 1. Generate Query Embedding
     query_vector = generate_embedding(query)
     
     # 2. Vector Search (Top 30 candidates)
-    vector_results = db.query(DocumentChunk, Source).join(
+    vector_query = db.query(DocumentChunk, Source).join(
         Source, DocumentChunk.source_id == Source.id
-    ).order_by(
+    )
+    if source_type:
+        vector_query = vector_query.filter(Source.source_type == source_type)
+    vector_results = vector_query.order_by(
         DocumentChunk.embedding.cosine_distance(query_vector)
     ).limit(30).all()
+
     
     candidate_chunks = {}
     for chunk, source in vector_results:
@@ -33,11 +38,15 @@ def search_documents(query: str, db: Session, top_k: int = 5):
     # 3. Exact Keyword Match Fallback (Top 10)
     # This ensures if the user types an exact keyword/acronym that the 
     # vector model misses, we still include it in the candidate pool for the reranker.
-    keyword_results = db.query(DocumentChunk, Source).join(
+    keyword_query = db.query(DocumentChunk, Source).join(
         Source, DocumentChunk.source_id == Source.id
     ).filter(
         DocumentChunk.chunk_text.ilike(f"%{query}%")
-    ).limit(10).all()
+    )
+    if source_type:
+        keyword_query = keyword_query.filter(Source.source_type == source_type)
+    keyword_results = keyword_query.limit(10).all()
+
     
     for chunk, source in keyword_results:
         if chunk.id not in candidate_chunks:

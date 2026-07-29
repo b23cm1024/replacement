@@ -84,7 +84,6 @@ function ResultCard({ result, index }: { result: SearchResult; index: number }) 
         '--card-accent': cfg.color,
       } as React.CSSProperties}
     >
-      <style>{`.result-card[style*="--card-accent: ${cfg.color}"]::before { background: ${cfg.color}; }`}</style>
 
       <div className="result-card-header">
         <div className="result-title">

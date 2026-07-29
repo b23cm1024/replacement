@@ -141,6 +141,7 @@ const SUPPORTED_TYPES = [
   { ext: '.docx', label: 'Word',       color: '#60a5fa' },
   { ext: '.pptx', label: 'PowerPoint', color: '#fb923c' },
   { ext: '.xlsx', label: 'Excel',      color: '#34d399' },
+  { ext: '.md',   label: 'Markdown',   color: '#38bdf8' },
 ];
 
 const ACCEPT_EXTS = SUPPORTED_TYPES.map(t => t.ext).join(',');
@@ -279,7 +280,7 @@ function DocumentPanel({ addToast, updateToast }: PanelProps) {
             </div>
             <p className="dropzone-title">Drop your document here</p>
             <p className="dropzone-sub">or <span className="dropzone-link">click to browse</span></p>
-            <p className="dropzone-hint">PDF, DOCX, PPTX, XLSX · Max 50 MB</p>
+            <p className="dropzone-hint">PDF, DOCX, PPTX, XLSX, MD · Max 50 MB</p>
           </>
         )}
       </div>

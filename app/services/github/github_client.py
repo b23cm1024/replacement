@@ -54,16 +54,17 @@ SUPPORTED_BARE_NAMES = {
 }
 
 
-def _get_headers() -> dict:
+def _get_headers(token: str = None) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    effective_token = token or GITHUB_TOKEN  # per-request token takes priority over env var
+    if effective_token:
+        headers["Authorization"] = f"Bearer {effective_token}"
     return headers
 
 
-def _github_get(url: str) -> dict | list:
+def _github_get(url: str, token: str = None) -> dict | list:
     """Make a GET request to the GitHub API and return parsed JSON."""
-    response = requests.get(url, headers=_get_headers(), timeout=30)
+    response = requests.get(url, headers=_get_headers(token), timeout=30)
     if response.status_code != 200:
         raise RuntimeError(
             f"GitHub API error {response.status_code} for {url}: {response.text[:200]}"
@@ -71,19 +72,19 @@ def _github_get(url: str) -> dict | list:
     return response.json()
 
 
-def get_repo_info(owner: str, repo: str) -> dict:
+def get_repo_info(owner: str, repo: str, token: str = None) -> dict:
     """Fetch basic repository metadata."""
     url = f"https://api.github.com/repos/{owner}/{repo}"
-    return _github_get(url)
+    return _github_get(url, token)
 
 
-def _get_default_branch(owner: str, repo: str) -> str:
+def _get_default_branch(owner: str, repo: str, token: str = None) -> str:
     """Return the default branch name (e.g. 'main' or 'master')."""
-    info = get_repo_info(owner, repo)
+    info = get_repo_info(owner, repo, token)
     return info.get("default_branch", "main")
 
 
-def _traverse_repo_tree(owner: str, repo: str, branch: str) -> list[dict]:
+def _traverse_repo_tree(owner: str, repo: str, branch: str, token: str = None) -> list[dict]:
     """
     Recursively list all blob (file) entries in the repo tree.
     Returns files whose extension is in SUPPORTED_EXTENSIONS OR whose
@@ -93,7 +94,7 @@ def _traverse_repo_tree(owner: str, repo: str, branch: str) -> list[dict]:
         f"https://api.github.com/repos/{owner}/{repo}"
         f"/git/trees/{branch}?recursive=1"
     )
-    data = _github_get(url)
+    data = _github_get(url, token)
 
     files = []
     for item in data.get("tree", []):
@@ -119,7 +120,7 @@ def _traverse_repo_tree(owner: str, repo: str, branch: str) -> list[dict]:
     return files
 
 
-def _fetch_file_content(owner: str, repo: str, path: str, branch: str) -> str | None:
+def _fetch_file_content(owner: str, repo: str, path: str, branch: str, token: str = None) -> str | None:
     """
     Fetch the raw decoded content of a single file.
     Returns None if the file is binary or cannot be decoded.
@@ -129,7 +130,7 @@ def _fetch_file_content(owner: str, repo: str, path: str, branch: str) -> str | 
         f"/contents/{path}?ref={branch}"
     )
     try:
-        data = _github_get(url)
+        data = _github_get(url, token)
         if "content" not in data:
             return None
         decoded = base64.b64decode(data["content"]).decode("utf-8", errors="ignore")
@@ -139,31 +140,22 @@ def _fetch_file_content(owner: str, repo: str, path: str, branch: str) -> str | 
         return None
 
 
-def get_all_repo_files(owner: str, repo: str) -> list[dict]:
+def get_all_repo_files(owner: str, repo: str, token: str = None) -> list[dict]:
     """
     Main entry point: fetches all supported code/text files from a GitHub repo.
-
-    Returns a list of dicts:
-      [
-        {
-          "name":     "app.py",
-          "path":     "src/app.py",
-          "content":  "import os\\n...",
-          "language": "python"
-        },
-        ...
-      ]
+    Pass an optional token to override the server-side GITHUB_TOKEN env var
+    (useful for accessing private repos per-request).
     """
     print(f"[GitHub Client] Fetching repo: {owner}/{repo}")
-    branch = _get_default_branch(owner, repo)
+    branch = _get_default_branch(owner, repo, token)
     print(f"[GitHub Client] Default branch: {branch}")
 
-    file_list = _traverse_repo_tree(owner, repo, branch)
+    file_list = _traverse_repo_tree(owner, repo, branch, token)
     print(f"[GitHub Client] Found {len(file_list)} supported files in tree.")
 
     result = []
     for file_meta in file_list:
-        content = _fetch_file_content(owner, repo, file_meta["path"], branch)
+        content = _fetch_file_content(owner, repo, file_meta["path"], branch, token)
         if content and content.strip():
             file_meta["content"] = content
             result.append(file_meta)
