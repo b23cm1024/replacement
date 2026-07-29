@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables — NEVER commit actual secrets
+.env
+# But DO commit the example template:
+!.env.example
+
+# Storage (uploaded PDFs and extracted images)
+storage/
+
+# Database
+workiq.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

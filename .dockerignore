@@ -13,3 +13,8 @@ build/
 venv/
 node_modules/
 *.tar
+storage/
+test_files/
+test_*.py
+inspect_doc.py
+frontend/
